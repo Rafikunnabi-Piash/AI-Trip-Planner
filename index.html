@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Trip Planner with Voice Input</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .hero-bg {
+            background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1599383636323-17639f727670?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Style for the microphone button */
+        #micBtn.listening svg {
+            color: #3498db;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="p-4">
+            <h1 class="text-2xl font-bold text-center">AI Trip Planner ✨</h1>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex flex-col items-center justify-center p-4">
+            <div class="w-full max-w-2xl text-center">
+                <div class="glass-card rounded-2xl p-6 md:p-8 shadow-2xl">
+                    <h2 class="text-3xl md:text-4xl font-extrabold mb-4">Craft Your Perfect Bangladesh Adventure</h2>
+                    <p class="text-gray-300 mb-6">Tell me what you'd like to do. Click the mic to speak!</p>
+                    
+                    <div class="relative w-full">
+                        <textarea id="userInput" class="w-full h-24 p-3 pr-12 bg-gray-800/60 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="e.g., A one day trip in Old Dhaka focusing on historical sites and street food..."></textarea>
+                        <button id="micBtn" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors duration-300" title="Use Voice">
+                            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        </button>
+                    </div>
+
+                    <!-- Notification area for errors -->
+                    <div id="notification" class="text-yellow-400 text-sm mt-2 text-center h-5"></div>
+
+                    <button id="generateBtn" class="mt-4 w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg">
+                        Generate Itinerary
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="w-full max-w-4xl mt-10 p-4">
+                <!-- Loader will be inserted here -->
+                <div id="loader" class="hidden justify-center">
+                    <div class="loader"></div>
+                </div>
+                <!-- Itinerary content will be inserted here -->
+                <div id="itineraryContent"></div>
+            </div>
+        </main>
+        <p class="text-center text-xl text-gray-400 dark:text-gray-500 mt-4">
+            Powered by Rafikunnabi Piash. Your privacy is respected.
+        </p>
+    </div>
+
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const userInput = document.getElementById('userInput');
+        const resultsDiv = document.getElementById('results');
+        const itineraryContentDiv = document.getElementById('itineraryContent');
+        const loader = document.getElementById('loader');
+        const micBtn = document.getElementById('micBtn');
+        const notification = document.getElementById('notification');
+
+        // --- Voice to Text Logic ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+
+            micBtn.addEventListener('click', () => {
+                notification.classList.add('hidden');
+                if (micBtn.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            recognition.onstart = () => {
+                micBtn.classList.add('listening');
+                userInput.placeholder = "Listening...";
+            };
+
+            recognition.onend = () => {
+                micBtn.classList.remove('listening');
+                userInput.placeholder = "e.g., A one day trip in Old Dhaka focusing on historical sites and street food...";
+            };
+            
+            recognition.onresult = (event) => {
+                notification.classList.add('hidden');
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                if (event.error === 'not-allowed') {
+                    notification.textContent = "🎤 Microphone access denied. Please allow it in your browser settings.";
+                } else {
+                    notification.textContent = `Voice error: ${event.error}`;
+                }
+                notification.classList.remove('hidden');
+                micBtn.classList.remove('listening');
+                userInput.placeholder = "e.g., A one day trip in Old Dhaka focusing on historical sites and street food...";
+            };
+
+        } else {
+            console.warn("Speech Recognition not supported in this browser.");
+            micBtn.style.display = 'none';
+        }
+
+
+        // --- Itinerary Generation Logic ---
+
+        // Mock Database with all 64 districts and detailed information
+        const mockDatabase = {
+            "dhaka": { "tripTitle": "Historical Tour of Dhaka", "summary": "Explore Mughal forts, palaces, and national monuments in the heart of Bangladesh.", "itinerary": [{ "stopNumber": 1, "locationName": "Lalbagh Fort", "address": "Lalbagh Rd, Dhaka", "description": "A 17th-century Mughal fort complex, famously remaining incomplete. It houses the tomb of Pari Bibi, a mosque, and the Diwan-i-Aam (Hall of Audience). A monument to unfulfilled dreams.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Ahsan Manzil", "address": "Islampur Rd, Dhaka", "description": "Known as the 'Pink Palace', this was the grand residence of the Nawab of Dhaka. Now a national museum, it showcases the lifestyle of the period and Indo-Saracenic architecture.", "estimatedTimeAtStop": "1.5-2 hours" }] },
+            "chittagong": { "tripTitle": "Chittagong: Port City & Nature", "summary": "From the bustling port city life to the serene man-made lakes and hills.", "itinerary": [{ "stopNumber": 1, "locationName": "Patenga Sea Beach", "address": "Patenga, Chittagong", "description": "Located at the mouth of the Karnaphuli River, this beach is perfect for watching large ships and enjoying local seafood stalls. It's more of a city beach than a swimming destination.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Foy's Lake", "address": "Pahartali, Chittagong", "description": "A beautiful man-made lake surrounded by hills and forests, offering boating and a popular amusement park, making it ideal for a family outing.", "estimatedTimeAtStop": "3-4 hours" }] },
+            "cox's bazar": { "tripTitle": "Relax at Cox's Bazar", "summary": "Unwind on the world's longest natural sea beach, a prime tourist destination in Bangladesh.", "itinerary": [{ "stopNumber": 1, "locationName": "Sugandha Beach", "address": "Cox's Bazar Sea Beach", "description": "The most popular beach point, close to hotels and restaurants. Ideal for enjoying the waves, beach activities like horse riding, and the vibrant tourist atmosphere.", "estimatedTimeAtStop": "Full day" }, { "stopNumber": 2, "locationName": "Inani Beach", "address": "Ukhia, Cox's Bazar", "description": "A quieter, more serene beach known for its unique coral stones and rock formations that are visible during low tide. The water is clearer here, perfect for photography.", "estimatedTimeAtStop": "3-4 hours" }] },
+            "sylhet": { "tripTitle": "Nature's Wonders in Sylhet", "summary": "Discover stunning landscapes, from stone-laden rivers to lush swamp forests and holy shrines.", "itinerary": [{ "stopNumber": 1, "locationName": "Jaflong", "address": "Gowainghat, Sylhet", "description": "A scenic spot at the border, famous for its rolling hills of the Indian state of Meghalaya in the background and the collection of stones from the Sari River.", "estimatedTimeAtStop": "Half day" }, { "stopNumber": 2, "locationName": "Ratargul Swamp Forest", "address": "Gowainghat, Sylhet", "description": "One of the few freshwater swamp forests in the world. Take a silent boat ride through the submerged trees for a magical, Amazon-like experience, especially during monsoon.", "estimatedTimeAtStop": "3-4 hours" }] },
+            "sreemangal": { "tripTitle": "Tea Capital Sreemangal", "summary": "Immerse yourself in lush green tea gardens, the heart of Bangladesh's tea industry.", "itinerary": [{ "stopNumber": 1, "locationName": "Tea Gardens", "address": "Sreemangal", "description": "Walk or drive through endless rolling hills covered in a green carpet of tea plantations. It's a peaceful and visually stunning experience.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Lawachara National Park", "address": "Kamalganj, Moulvibazar", "description": "A beautiful, dense tropical forest that is home to the endangered Hoolock Gibbon and a variety of other wildlife. Perfect for hiking and nature walks.", "estimatedTimeAtStop": "3-4 hours" }] },
+            "bandarban": { "tripTitle": "Adventure in the Hills of Bandarban", "summary": "Explore the majestic hills, clouds, waterfalls, and tribal culture of the Chittagong Hill Tracts.", "itinerary": [{ "stopNumber": 1, "locationName": "Nilgiri", "address": "Thanchi, Bandarban", "description": "A resort on a high peak managed by the army, offering breathtaking panoramic views. It often feels like you are floating above a sea of clouds.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Nafakhum Waterfall", "address": "Thanchi, Bandarban", "description": "Considered the 'Niagara of Bangladesh', it's one of the largest and most beautiful waterfalls in the country. Reaching it requires a challenging but rewarding trek.", "estimatedTimeAtStop": "Full day trip" }] },
+            "khulna": { "tripTitle": "Gateway to the Sundarbans", "summary": "Explore the city closest to the world's largest mangrove forest and ancient mosques.", "itinerary": [{ "stopNumber": 1, "locationName": "Sixty Dome Mosque", "address": "Bagerhat, Khulna", "description": "A UNESCO World Heritage Site from the 15th century. This mosque is a masterpiece of the Bengal Sultanate, featuring 77 domes supported by 60 stone pillars.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Sundarbans", "address": "Khulna Division", "description": "The world's largest mangrove forest and home to the Royal Bengal Tiger. A boat tour is essential to explore its mysterious creeks and wildlife.", "estimatedTimeAtStop": "1-3 days tour" }] },
+            "rajshahi": { "tripTitle": "Silk City & Ancient History", "summary": "Discover ancient temples, palaces, and the renowned silk industry of Rajshahi.", "itinerary": [{ "stopNumber": 1, "locationName": "Puthia Temple Complex", "address": "Puthia Upazila, Rajshahi", "description": "An extraordinary cluster of the largest number of historical Hindu temples in Bangladesh, showcasing beautiful terracotta ornamentation.", "estimatedTimeAtStop": "2-3 hours" }, { "stopNumber": 2, "locationName": "Varendra Research Museum", "address": "Rajshahi City", "description": "The oldest museum in Bangladesh, hosting a rich collection of archaeological artifacts from the greater Bengal region, including the Indus Valley Civilization.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "rangamati": { "tripTitle": "The Lake City Rangamati", "summary": "Enjoy the serene beauty of the vast Kaptai Lake and the unique culture of its tribal communities.", "itinerary": [{ "stopNumber": 1, "locationName": "Kaptai Lake Cruise", "address": "Rangamati", "description": "The best way to experience Rangamati is by taking a day-long boat cruise on this vast man-made lake, enjoying the stunning landscapes and lush green hills.", "estimatedTimeAtStop": "Half to Full day" }, { "stopNumber": 2, "locationName": "Shuvolong Waterfall", "address": "Barkal, Rangamati", "description": "A scenic waterfall accessible by boat on Kaptai Lake. It's most impressive during the monsoon season when the water flow is at its peak.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "barisal": { "tripTitle": "Venice of Bengal: Barisal", "summary": "Experience the unique riverine life, floating markets, and lush green landscapes.", "itinerary": [{ "stopNumber": 1, "locationName": "Bhimruli Floating Market", "address": "Banaripara, Barisal", "description": "A vibrant, 200-year-old floating market where farmers sell guavas and other produce directly from their boats. It's a colorful spectacle, especially in the morning.", "estimatedTimeAtStop": "2-3 hours (Morning)" }, { "stopNumber": 2, "locationName": "Durga Sagar", "address": "Babuganj, Barisal", "description": "The largest man-made pond in southern Bangladesh, created in the 18th century. It features a small island in the middle and is a popular recreational spot.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "bagerhat": { "tripTitle": "Historic Mosque City of Bagerhat", "summary": "A UNESCO World Heritage site known for its large number of mosques and Islamic monuments from the Sultanate period.", "itinerary": [{ "stopNumber": 1, "locationName": "Sixty Dome Mosque", "address": "Bagerhat", "description": "This 15th-century mosque is one of the most impressive Muslim monuments in South Asia, with 77 domes and a vast prayer hall.", "estimatedTimeAtStop": "2-3 hours" }, {"stopNumber": 2, "locationName": "Khan Jahan Ali's Tomb", "address": "Bagerhat", "description": "The mausoleum of the Turkish general and saint who founded the city. It's a major pilgrimage site.", "estimatedTimeAtStop": "1 hour" }] },
+            "bhola": { "tripTitle": "Island Life in Bhola", "summary": "Explore the largest island of Bangladesh, a land of rivers, agriculture, and coastal life.", "itinerary": [{ "stopNumber": 1, "locationName": "Char Kukri Mukri", "address": "Char Fasson, Bhola", "description": "A serene wildlife sanctuary and island known for its mangrove forests, herds of deer, and tranquil environment.", "estimatedTimeAtStop": "Full day" }] },
+            "bogra": { "tripTitle": "Ancient Pundranagar: Bogra", "summary": "Home to Mahasthangarh, the oldest known city in Bangladesh, with ruins dating back to the 3rd century BC.", "itinerary": [{ "stopNumber": 1, "locationName": "Mahasthangarh", "address": "Shibganj, Bogra", "description": "Explore the extensive ruins of this ancient citadel, including the fortress walls, Govinda Bhita temple, and a museum with excavated artifacts.", "estimatedTimeAtStop": "Half day" }] },
+            "barguna": { "tripTitle": "Coastal Beauty of Barguna", "summary": "Discover the pristine beaches and mangrove forests of this coastal district.", "itinerary": [{ "stopNumber": 1, "locationName": "Fatrar Char (Kuakata)", "address": "Amtali, Barguna", "description": "A beautiful mangrove forest located on the west side of Kuakata beach, often considered a part of the Sundarbans.", "estimatedTimeAtStop": "Full day" }] },
+            "brahmanbaria": { "tripTitle": "Cultural Hub Brahmanbaria", "summary": "Known as the cultural capital of Bangladesh, famous for its contributions to classical music and arts.", "itinerary": [{ "stopNumber": 1, "locationName": "Kharampur Mazar Sharif", "address": "Akhaura, Brahmanbaria", "description": "A famous and revered shrine that attracts devotees from all over the country.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "chandpur": { "tripTitle": "River Confluence at Chandpur", "summary": "Witness the powerful meeting point of three major rivers: the Padma, Meghna, and Dakatia.", "itinerary": [{ "stopNumber": 1, "locationName": "Molehead", "address": "Chandpur Town", "description": "A triangular concrete dam where you can see the distinct currents of the Padma and Meghna rivers clashing.", "estimatedTimeAtStop": "1 hour" }] },
+            "comilla": { "tripTitle": "Archaeological Treasures of Comilla", "summary": "Rich in history with ancient Buddhist archaeological sites and a legacy of literature.", "itinerary": [{ "stopNumber": 1, "locationName": "Mainamati Ruins", "address": "Comilla", "description": "A series of Buddhist archaeological sites from the 8th to 12th centuries, including the Salban Vihara, a vast monastery with 115 cells for monks.", "estimatedTimeAtStop": "Half day" }] },
+            "chuadanga": { "tripTitle": "Historic Chuadanga", "summary": "Known for being the location of the first temporary capital of Bangladesh during the 1971 Liberation War.", "itinerary": [{ "stopNumber": 1, "locationName": "Karpasdanga", "address": "Damurhuda, Chuadanga", "description": "A historical place where the first government of Bangladesh held meetings during the Liberation War.", "estimatedTimeAtStop": "1 hour" }] },
+            "dinajpur": { "tripTitle": "Terracotta Temples of Dinajpur", "summary": "Home to some of the most exquisite examples of terracotta art on Hindu temples in Bangladesh.", "itinerary": [{ "stopNumber": 1, "locationName": "Kantaji Temple (Kantajew Mandir)", "address": "Kaharole, Dinajpur", "description": "A stunning 18th-century temple adorned with intricate terracotta plaques depicting scenes from the Ramayana and Mahabharata.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "faridpur": { "tripTitle": "Riverine Faridpur", "summary": "A district on the banks of the Padma river, known as the birthplace of the famous poet Jasimuddin.", "itinerary": [{ "stopNumber": 1, "locationName": "Palli Kabi Jasimuddin's Homestead", "address": "Faridpur", "description": "Visit the ancestral home of the renowned pastoral poet, now a museum complex preserving his life and works.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "feni": { "tripTitle": "Gateway to Chittagong: Feni", "summary": "A small but strategically important district connecting Dhaka and Chittagong.", "itinerary": [{ "stopNumber": 1, "locationName": "Bijoy Singh Dighi", "address": "Feni Sadar", "description": "A large historical pond excavated by King Bijoy Singh in the 16th century, now a popular local recreational spot.", "estimatedTimeAtStop": "1 hour" }] },
+            "gaibandha": { "tripTitle": "Charlands of Gaibandha", "summary": "Explore the unique landscape of river islands (chars) formed by the mighty Brahmaputra and Teesta rivers.", "itinerary": [{ "stopNumber": 1, "locationName": "Balashi Ghat", "address": "Gaibandha", "description": "A major river port and a bustling hub of activity. It's a great place to observe river life and the transportation of goods and people.", "estimatedTimeAtStop": "1 hour" }] },
+            "gazipur": { "tripTitle": "Recreation near Dhaka: Gazipur", "summary": "A district close to the capital, popular for its national parks, safari parks, and numerous resorts.", "itinerary": [{ "stopNumber": 1, "locationName": "Bangabandhu Sheikh Mujib Safari Park", "address": "Sreepur, Gazipur", "description": "A large safari park modeled after international standards, with core safari, safari kingdom, and other attractions.", "estimatedTimeAtStop": "Half day" }] },
+            "gopalganj": { "tripTitle": "Land of the Father of the Nation", "summary": "Visit Tungipara, the birthplace and final resting place of Bangabandhu Sheikh Mujibur Rahman.", "itinerary": [{ "stopNumber": 1, "locationName": "Mausoleum of Bangabandhu", "address": "Tungipara, Gopalganj", "description": "A grand complex that houses the tomb of Sheikh Mujibur Rahman, a library, and a museum dedicated to his life.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "habiganj": { "tripTitle": "Tea & History in Habiganj", "summary": "Explore lesser-known but beautiful tea gardens and a well-preserved national park.", "itinerary": [{ "stopNumber": 1, "locationName": "Satchari National Park", "address": "Chunarughat, Habiganj", "description": "A beautiful and biodiverse forest with several trekking trails. It's home to a variety of wildlife, including monkeys and birds.", "estimatedTimeAtStop": "3-4 hours" }] },
+            "jamalpur": { "tripTitle": "The Hills of Jamalpur", "summary": "Experience the natural beauty of northern Mymensingh division, close to the Indian border.", "itinerary": [{ "stopNumber": 1, "locationName": "Lauchapra Picnic Spot", "address": "Bakshiganj, Jamalpur", "description": "A scenic recreational area at the foothills of the Garo hills, offering a peaceful environment and natural beauty.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "jashore": { "tripTitle": "Historic Jashore (Jessore)", "summary": "Recognized as the first district of Bangladesh, it holds significant literary and historical importance.", "itinerary": [{ "stopNumber": 1, "locationName": "Michael Madhusudan Dutt's Home", "address": "Sagardari, Jashore", "description": "Visit the birthplace of the great 19th-century poet and playwright, a pioneer of Bengali literature.", "estimatedTimeAtStop": "2 hours" }] },
+            "jhalokati": { "tripTitle": "Riverine Jhalokati", "summary": "A district crisscrossed by rivers and canals, often called the 'Venice of the East'.", "itinerary": [{ "stopNumber": 1, "locationName": "Gabkhan Canal", "address": "Jhalokati", "description": "Known as the Suez Canal of Bengal, this man-made canal significantly shortens the river route between Dhaka and Mongla port.", "estimatedTimeAtStop": "1 hour" }] },
+            "jhenaidah": { "tripTitle": "Historic Jhenaidah", "summary": "A district with a rich history, featuring ancient temples and historical sites.", "itinerary": [{ "stopNumber": 1, "locationName": "Naldanga Temple Complex", "address": "Kaliganj, Jhenaidah", "description": "A group of ancient temples dedicated to various Hindu deities, showcasing fine architectural work.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "joypurhat": { "tripTitle": "Joypurhat's Archaeological Sites", "summary": "An area rich in history, located close to some of the most important archaeological sites in the region.", "itinerary": [{ "stopNumber": 1, "locationName": "Paharpur Buddhist Monastery", "address": "Badalgachhi, Naogaon (nearby)", "description": "A UNESCO World Heritage site, this massive ancient monastery is easily accessible from Joypurhat and is a must-see.", "estimatedTimeAtStop": "Half day" }] },
+            "khagrachari": { "tripTitle": "Valley of Hills: Khagrachari", "summary": "A land of stunning natural beauty in the Hill Tracts, known for its caves, waterfalls, and tribal culture.", "itinerary": [{ "stopNumber": 1, "locationName": "Alutila Cave", "address": "Matiranga, Khagrachari", "description": "A natural, dark, and thrilling cave that you can walk through from one end to the other. A torch is a must!", "estimatedTimeAtStop": "1-2 hours" }, {"stopNumber": 2, "locationName": "Sajek Valley", "address": "Baghaichhari, Rangamati (accessed via Khagrachari)", "description": "Known as the 'Kingdom of Clouds', Sajek is a must-visit destination, famous for its stunning cloud-level views and serene atmosphere.", "estimatedTimeAtStop": "1-2 days" }] },
+            "kishoreganj": { "tripTitle": "Haors of Kishoreganj", "summary": "Explore the vast wetlands (haors) that create a sea-like illusion during the monsoon season.", "itinerary": [{ "stopNumber": 1, "locationName": "Nikli Haor", "address": "Nikli, Kishoreganj", "description": "Rent a boat and cruise through the stunningly vast waterbody, visiting submerged villages and enjoying the open expanse. Best visited during monsoon.", "estimatedTimeAtStop": "Full day" }] },
+            "kurigram": { "tripTitle": "Riverine Kurigram", "summary": "A district defined by the mighty Brahmaputra river and its numerous tributaries and river islands (chars).", "itinerary": [{ "stopNumber": 1, "locationName": "Chilmari River Port", "address": "Chilmari, Kurigram", "description": "A historic and busy river port on the Brahmaputra. It's a fascinating place to observe the bustling river-based economy of the region.", "estimatedTimeAtStop": "1 hour" }] },
+            "kushtia": { "tripTitle": "Cultural Capital Kushtia", "summary": "Known as the cultural capital of Bangladesh, being the land of Baul emperor Lalon and Nobel laureate Rabindranath Tagore.", "itinerary": [{ "stopNumber": 1, "locationName": "Lalon Shah's Shrine", "address": "Kushtia", "description": "Visit the mausoleum of the great mystic and Baul emperor, Lalon Shah. A center for Baul music and philosophy.", "estimatedTimeAtStop": "2 hours" }, { "stopNumber": 2, "locationName": "Kuthibari of Rabindranath Tagore", "address": "Shilaidaha, Kushtia", "description": "The former residence of the Nobel laureate poet, where he wrote many of his famous works. Now a museum.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "lakshmipur": { "tripTitle": "Coastal Lakshmipur", "summary": "A district in the coastal belt of Bangladesh with emerging tourist spots.", "itinerary": [{ "stopNumber": 1, "locationName": "Alexander Meghna Beach", "address": "Ramgati, Lakshmipur", "description": "A new and emerging beach destination at the estuary of the Meghna river, offering a quiet and natural environment.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "lalmonirhat": { "tripTitle": "Northern Lalmonirhat", "summary": "A district bordering India, known for its historical land corridors and railway history.", "itinerary": [{ "stopNumber": 1, "locationName": "Tin Bigha Corridor", "address": "Patgram, Lalmonirhat", "description": "A strip of land in India that connects the Dahagram-Angarpota enclave of Bangladesh to the mainland. A site of unique geopolitical history.", "estimatedTimeAtStop": "1 hour" }] },
+            "madaripur": { "tripTitle": "Historic Madaripur", "summary": "Named after the 14th-century Sufi saint, Shah Madar, this district has deep historical roots.", "itinerary": [{ "stopNumber": 1, "locationName": "Shrine of Shah Madar", "address": "Madaripur", "description": "Visit the dargah (tomb) of the revered Sufi saint, which is a significant pilgrimage site for many devotees.", "estimatedTimeAtStop": "1 hour" }] },
+            "magura": { "tripTitle": "The Art of Magura", "summary": "A small district with significant cultural roots and historical landmarks.", "itinerary": [{ "stopNumber": 1, "locationName": "Raja Sitaram Ray's Palace", "address": "Mohammadpur, Magura", "description": "Explore the ruins of the palace of Raja Sitaram Ray, a rebellious zamindar of the 18th century.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "manikganj": { "tripTitle": "Manikganj by the Padma", "summary": "A district near Dhaka, famous for its grand zamindar palaces and proximity to the Padma River.", "itinerary": [{ "stopNumber": 1, "locationName": "Baliati Palace", "address": "Saturia, Manikganj", "description": "One of the finest examples of 19th-century zamindar palaces in Bangladesh, featuring seven magnificent buildings with Corinthian columns.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "meherpur": { "tripTitle": "Birthplace of Bangladesh: Meherpur", "summary": "A place of immense historical importance where the first provisional government of Bangladesh was formed in 1971.", "itinerary": [{ "stopNumber": 1, "locationName": "Mujibnagar Complex", "address": "Meherpur", "description": "A memorial complex built at the site where the proclamation of independence was made. It features a large map of Bangladesh and various sculptures.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "moulvibazar": { "tripTitle": "Nature's Abode: Moulvibazar", "summary": "A district synonymous with tea gardens, waterfalls, and rich biodiversity.", "itinerary": [{ "stopNumber": 1, "locationName": "Madhabkunda Waterfall", "address": "Barlekha, Moulvibazar", "description": "One of the largest and most famous waterfalls in Bangladesh, attracting a large number of tourists, especially during the rainy season.", "estimatedTimeAtStop": "2-3 hours" }, {"stopNumber": 2, "locationName": "Baikka Beel", "address": "Sreemangal, Moulvibazar", "description": "A beautiful wetland sanctuary that is a haven for migratory birds during the winter. A paradise for birdwatchers and nature photographers.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "munshiganj": { "tripTitle": "Historic Bikrampur: Munshiganj", "summary": "The ancient region of Bikrampur, it was a capital of Bengal and is rich in archaeological sites.", "itinerary": [{ "stopNumber": 1, "locationName": "Idrakpur Fort", "address": "Munshiganj", "description": "A Mughal river fort built in the 17th century to defend against pirates. It's a unique fort with a large circular drum on its top.", "estimatedTimeAtStop": "1 hour" }] },
+            "mymensingh": { "tripTitle": "Educational Hub Mymensingh", "summary": "A city with a rich cultural and educational heritage, located on the banks of the Brahmaputra river.", "itinerary": [{ "stopNumber": 1, "locationName": "Shashi Lodge", "address": "Mymensingh", "description": "A beautiful zamindar palace with impressive architecture, once owned by the Maharaja of Mymensingh. Now used as a teacher's training college.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "naogaon": { "tripTitle": "Ancient Vihara of Naogaon", "summary": "Home to the magnificent Paharpur Buddhist Monastery, a UNESCO World Heritage Site.", "itinerary": [{ "stopNumber": 1, "locationName": "Paharpur Buddhist Monastery (Somapura Mahavihara)", "address": "Badalgachhi, Naogaon", "description": "One of the most important archaeological sites in South Asia, this massive 8th-century monastery was a renowned intellectual center.", "estimatedTimeAtStop": "Half day" }] },
+            "narail": { "tripTitle": "The Land of S.M. Sultan", "summary": "The birthplace of the world-renowned and eccentric artist, S.M. Sultan.", "itinerary": [{ "stopNumber": 1, "locationName": "Sultan Complex", "address": "Narail", "description": "A gallery and park dedicated to the artist, showcasing his famous paintings and preserving his boats.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "narayanganj": { "tripTitle": "The Dundee of Bangladesh", "summary": "A historic river port and industrial city, once the ancient capital of Bengal.", "itinerary": [{ "stopNumber": 1, "locationName": "Sonargaon", "address": "Narayanganj", "description": "The old capital of Bengal before Dhaka. Explore the Folk Art and Craft Museum, the abandoned city of Panam Nagar, and the Goaldi Mosque.", "estimatedTimeAtStop": "Half day" }] },
+            "narsingdi": { "tripTitle": "Ancient Narsingdi", "summary": "Home to the recently discovered Wari-Bateshwar ruins, pushing back the history of urban civilization in Bangladesh.", "itinerary": [{ "stopNumber": 1, "locationName": "Wari-Bateshwar ruins", "address": "Belabo, Narsingdi", "description": "An ancient fortified city and archaeological site dating back to 450 BC. A must-visit for history enthusiasts.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "natore": { "tripTitle": "Palaces of Natore", "summary": "Famous for its grand zamindar palaces, especially the residence of Rani Bhabani.", "itinerary": [{ "stopNumber": 1, "locationName": "Natore Rajbari (Gono Bhaban)", "address": "Natore", "description": "The historic palace of the Natore zamindars, a sprawling complex of buildings and ponds. Part of it is now the official residence of the Prime Minister in North Bengal.", "estimatedTimeAtStop": "2-3 hours" }] },
+            "nawabganj": { "tripTitle": "Mango Capital Nawabganj", "summary": "Also known as Chapai Nawabganj, this district is famous for its delicious varieties of mangoes and ancient mosques.", "itinerary": [{ "stopNumber": 1, "locationName": "Choto Sona Mosque", "address": "Shibganj, Nawabganj", "description": "A beautiful 15th-century mosque known as the 'Jewel of Sultanate Architecture'. It was once gilded with gold, hence the name 'Small Golden Mosque'.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "netrokona": { "tripTitle": "Haors and Hills of Netrokona", "summary": "A district of stunning natural beauty, with wetlands on one side and the Garo hills of Meghalaya on the other.", "itinerary": [{ "stopNumber": 1, "locationName": "Birishiri (Shusong Durgapur)", "address": "Durgapur, Netrokona", "description": "Famous for its unique ceramic clay hills and the stunning blue-green water of its quarry lakes. A picturesque and unique landscape in Bangladesh.", "estimatedTimeAtStop": "Full day" }] },
+            "nilphamari": { "tripTitle": "Northern Nilphamari", "summary": "A district in the north known for the Teesta river and its colonial-era railway infrastructure.", "itinerary": [{ "stopNumber": 1, "locationName": "Teesta Barrage", "address": "Dimla, Nilphamari", "description": "A major irrigation project on the Teesta river, which becomes a popular picnic spot in the winter with a large number of migratory birds.", "estimatedTimeAtStop": "1 hour" }] },
+            "noakhali": { "tripTitle": "Coastal Noakhali", "summary": "A coastal district shaped by the Meghna river and the Bay of Bengal, known for its offshore islands.", "itinerary": [{ "stopNumber": 1, "locationName": "Nijhum Dwip", "address": "Hatiya, Noakhali", "description": "A beautiful offshore island and national park, famous for its large mangrove forest and vast herds of spotted deer.", "estimatedTimeAtStop": "1-2 days" }] },
+            "pabna": { "tripTitle": "Historic Pabna", "summary": "A district with a rich history of peasant movements, literary figures, and the Hardinge Bridge.", "itinerary": [{ "stopNumber": 1, "locationName": "Hardinge Bridge & Lalon Shah Bridge", "address": "Ishwardi, Pabna", "description": "See the impressive steel railway Hardinge Bridge from the British era, running parallel to the new Lalon Shah road bridge over the Padma.", "estimatedTimeAtStop": "1 hour" }] },
+            "panchagarh": { "tripTitle": "Himalayan Views from Panchagarh", "summary": "The northernmost district of Bangladesh, from where the majestic Kanchenjunga mountain range can be seen on clear winter days.", "itinerary": [{ "stopNumber": 1, "locationName": "Tetulia", "address": "Panchagarh", "description": "Visit the Banglabandha Zero Point and the Mahananda river. On clear days from October to November, the stunning view of the Himalayas is a major attraction.", "estimatedTimeAtStop": "Morning" }] },
+            "patuakhali": { "tripTitle": "Land of the Sea Queen", "summary": "Home to Kuakata beach, one of the most scenic beaches in Bangladesh.", "itinerary": [{ "stopNumber": 1, "locationName": "Kuakata Sea Beach", "address": "Kalapara, Patuakhali", "description": "A unique beach that offers panoramic views of both the sunrise and the sunset over the Bay of Bengal. It's a serene and picturesque destination.", "estimatedTimeAtStop": "1-2 days" }] },
+            "pirojpur": { "tripTitle": "Floating Markets of Pirojpur", "summary": "Experience the authentic riverine life of Bangladesh with its canals and floating markets.", "itinerary": [{ "stopNumber": 1, "locationName": "Rayerkathi Zamindar Bari", "address": "Pirojpur", "description": "A historic palace complex with around 300 temples, showcasing the grandeur of the local zamindars.", "estimatedTimeAtStop": "1-2 hours" }] },
+            "rangpur": { "tripTitle": "Historic Rangpur", "summary": "A major city in Northern Bangladesh with a rich history and beautiful colonial architecture.", "itinerary": [{ "stopNumber": 1, "locationName": "Tajhat Palace", "address": "Rangpur", "description": "A magnificent zamindar palace built in the early 20th century. It's a fine example of Indo-Saracenic architecture and is now a museum.", "estimatedTimeAtStop": "2 hours" }] },
+            "satkhira": { "tripTitle": "Sundarbans Gateway Satkhira", "summary": "Another entry point to the Sundarbans, known for its honey production and shrimp farming.", "itinerary": [{ "stopNumber": 1, "locationName": "Kalagachia Eco Tourism Center", "address": "Shyamnagar, Satkhira", "description": "A spot on the edge of the Sundarbans from where you can take boat tours and get a feel for the vast mangrove forest.", "estimatedTimeAtStop": "Half day" }] },
+            "shariatpur": { "tripTitle": "Riverine Shariatpur", "summary": "A district in the Dhaka division, named after the 19th-century reformer Haji Shariatullah.", "itinerary": [{ "stopNumber": 1, "locationName": "Burir Hat Mosque", "address": "Bhedarganj, Shariatpur", "description": "An old and architecturally beautiful mosque that stands as a testament to the region's Islamic heritage.", "estimatedTimeAtStop": "1 hour" }] },
+            "sherpur": { "tripTitle": "Garo Hills of Sherpur", "summary": "A district bordering the Indian state of Meghalaya, known for its natural beauty at the foothills of the Garo hills.", "itinerary": [{ "stopNumber": 1, "locationName": "Ghazni Abokash Kendra", "address": "Jhenaigati, Sherpur", "description": "A popular leisure and picnic spot at the foothills of the Garo hills, featuring a lake, watchtower, and beautiful landscapes.", "estimatedTimeAtStop": "Half day" }] },
+            "sirajganj": { "tripTitle": "Gateway to North Bengal", "summary": "A district of great strategic importance, home to the Bangabandhu Bridge over the Jamuna river.", "itinerary": [{ "stopNumber": 1, "locationName": "Bangabandhu Bridge (Jamuna Bridge)", "address": "Sirajganj", "description": "One of the longest bridges in South Asia, connecting the eastern and western parts of Bangladesh. A marvel of engineering.", "estimatedTimeAtStop": "1 hour" }] },
+            "sunamganj": { "tripTitle": "The Haor Kingdom: Sunamganj", "summary": "A district dominated by vast wetlands (haors), creating an immense inland sea during the monsoon.", "itinerary": [{ "stopNumber": 1, "locationName": "Tanguar Haor", "address": "Tahirpur, Sunamganj", "description": "A UNESCO Ramsar site, this vast wetland is of international importance for its biodiversity, especially for migratory birds in winter. A boat trip here is unforgettable.", "estimatedTimeAtStop": "1-2 days" }] },
+            "tangail": { "tripTitle": "Textiles of Tangail", "summary": "Famous throughout Bangladesh for its unique sarees (Tangail Tant) and a delicious sweet called Chomchom.", "itinerary": [{ "stopNumber": 1, "locationName": "Atia Mosque", "address": "Delduar, Tangail", "description": "A beautiful 17th-century Mughal mosque with a unique blend of Sultanate and Mughal architectural styles.", "estimatedTimeAtStop": "1 hour" }] },
+            "thakurgaon": { "tripTitle": "Northernmost Thakurgaon", "summary": "A peaceful district in the north, known for its agriculture and historical sites.", "itinerary": [{ "stopNumber": 1, "locationName": "Jamalpur Zamindar Bari Mosque", "address": "Thakurgaon", "description": "A beautiful old mosque that showcases the fine architectural craftsmanship of the past.", "estimatedTimeAtStop": "1 hour" }] },
+            "default": { "tripTitle": "No Itinerary Found", "summary": "Sorry, I don't have a pre-made itinerary for that specific request yet. In a live version, Gemini would create one for you! Please try asking for a specific district of Bangladesh.", "itinerary": [] }
+        };
+
+        generateBtn.addEventListener('click', async () => {
+            const userQuery = userInput.value.trim().toLowerCase();
+            if (!userQuery) {
+                notification.textContent = "Please describe the trip you'd like to take.";
+                notification.classList.remove('hidden');
+                return;
+            }
+            notification.classList.add('hidden');
+
+            itineraryContentDiv.innerHTML = '';
+            loader.style.display = 'flex';
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            
+            // --- DYNAMIC MOCK RESPONSE (FIX) ---
+            let selectedItinerary = mockDatabase.default; // Default response
+            
+            // Iterate through the database keys to find a match
+            for (const district in mockDatabase) {
+                if (userQuery.includes(district)) {
+                    selectedItinerary = mockDatabase[district];
+                    break; // Stop once a match is found
+                }
+            }
+
+            // Simulate network delay
+            setTimeout(() => {
+                displayItinerary(selectedItinerary);
+                loader.style.display = 'none';
+            }, 1000);
+        });
+        
+        function displayItinerary(data) {
+            if (!data || !data.itinerary) {
+                itineraryContentDiv.innerHTML = `<p class="text-center text-red-400">Error displaying itinerary data.</p>`;
+                return;
+            }
+            
+            let content = `
+                <div class="glass-card rounded-2xl p-6 md:p-8">
+                    <h2 class="text-3xl font-bold text-center mb-2">${data.tripTitle}</h2>
+                    <p class="text-center text-gray-300 mb-8">${data.summary}</p>
+                    <div class="space-y-6">
+            `;
+            
+            data.itinerary.forEach((stop, index) => {
+                content += `
+                    <div class="flex items-start">
+                        <div class="flex flex-col items-center mr-4">
+                            <div class="bg-blue-500 rounded-full h-10 w-10 flex items-center justify-center font-bold text-lg">${stop.stopNumber}</div>
+                            ${index < data.itinerary.length - 1 ? '<div class="w-px h-16 bg-gray-600 mt-2"></div>' : ''}
+                        </div>
+                        <div class="bg-gray-800/50 rounded-lg p-4 flex-1">
+                            <h3 class="font-bold text-xl mb-1">${stop.locationName}</h3>
+                            <p class="text-sm text-gray-400 mb-2">${stop.address}</p>
+                            <p class="text-gray-300 mb-3">${stop.description}</p>
+                            <div class="text-xs text-blue-400 font-semibold">
+                                🕒 Est. Time: ${stop.estimatedTimeAtStop}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content += `
+                    </div>
+                </div>
+            `;
+            itineraryContentDiv.innerHTML = content;
+        }
+
+    </script>
+</body>
+</html>
