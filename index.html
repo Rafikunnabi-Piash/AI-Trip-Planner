@@ -6,6 +6,10 @@
     <title>AI Trip Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-firestore-compat.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -15,7 +19,7 @@
             background-attachment: fixed;
         }
         .gemini-gradient-text {
-            background-image: linear-gradient(to right, #2c22f0, #a855f7);
+            background-image: linear-gradient(to right, #4f46e5, #a855f7);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -25,6 +29,15 @@
         }
         .mic-button.listening svg {
             color: #ef4444; /* red-500 */
+        }
+        .text-stroke {
+            text-shadow: -0.5px -0.5px 0 #000, 0.5px -0.5px 0 #000, -0.5px 0.5px 0 #000, 0.5px 0.5px 0 #000;
+        }
+        #chat-widget {
+            transition: all 0.3s ease-in-out;
+        }
+        #auth-modal {
+            transition: opacity 0.3s ease-in-out;
         }
     </style>
 </head>
@@ -39,10 +52,23 @@
                 </svg>
                 AI Trip Planner
             </div>
-            <div>
-                <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="home">Home</a>
-                <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="about">About</a>
-                <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="contact">Contact</a>
+            <div class="flex items-center">
+                <div id="nav-links">
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="home">Home</a>
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="about">About</a>
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="pricing">Pricing</a>
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="contact">Contact</a>
+                </div>
+                <div id="auth-buttons" class="ml-4">
+                    <button id="login-btn" class="text-gray-300 hover:text-white mx-2">Login</button>
+                    <button id="signup-btn" class="gemini-gradient-bg hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg transition-opacity">Sign Up</button>
+                </div>
+                 <div id="user-actions" class="ml-4 hidden items-center">
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="planner">Create Itinerary</a>
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="booking">Book Hotel</a>
+                    <a href="#" class="nav-link text-gray-300 hover:text-white mx-3" data-page="profile">Profile</a>
+                    <button id="logout-btn" class="text-gray-300 hover:text-white">Logout</button>
+                </div>
             </div>
         </nav>
     </header>
@@ -57,11 +83,39 @@
                     <div class="container mx-auto px-6 py-24 text-center">
                         <h1 class="text-5xl md:text-6xl font-bold mb-4 gemini-gradient-text">Plan Your Dream Trip with AI</h1>
                         <p class="text-xl text-gray-300 mb-8">Tell us your destination, dates, and interests, and we'll create a personalized itinerary just for you.</p>
-                        <a href="#planner" class="gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-8 rounded-full text-lg transition-opacity">Get Started</a>
+                        <button id="get-started-btn" class="gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-8 rounded-full text-lg transition-opacity">Get Started</button>
                     </div>
                 </div>
             </section>
-
+            
+            <!-- Stats Section -->
+            <section class="py-20">
+                <div class="container mx-auto px-6">
+                    <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg border border-gray-700">
+                        <div class="grid md:grid-cols-3 gap-8 text-center">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.124-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.124-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M12 14a5 5 0 110-10 5 5 0 010 10z" /></svg>
+                                <h3 class="text-4xl font-bold gemini-gradient-text">100,000+</h3>
+                                <p class="text-gray-400 mt-2">Active Users</p>
+                            </div>
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                <h3 class="text-4xl font-bold gemini-gradient-text">50,000+</h3>
+                                <p class="text-gray-400 mt-2">Hotel Partnerships</p>
+                            </div>
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h10a2 2 0 002-2v-1a2 2 0 012-2h1.945M7.737 11l-.262-2.813a2 2 0 012.228-2.053L16 6l4.25 3.036a2 2 0 01-2.228 3.906L16 11.5l-2.263-1.616a2 2 0 00-2.474 0L9 11.5l-2.263 1.616a2 2 0 01-2.474 0L2 11.5" /></svg>
+                                <h3 class="text-4xl font-bold gemini-gradient-text">195</h3>
+                                <p class="text-gray-400 mt-2">Countries Covered</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Planner Page -->
+        <div id="page-planner" class="page hidden">
             <!-- Planner Section -->
             <section id="planner" class="py-20">
                 <div class="container mx-auto px-6">
@@ -102,15 +156,18 @@
 
             <!-- Itinerary Section -->
             <section id="itinerary-section" class="py-20 hidden">
-                <div class="container mx-auto px-6 text-center">
-                    <div class="inline-block bg-gray-900/70 backdrop-blur-sm py-3 px-6 rounded-lg border border-gray-700 mb-12">
-                        <h2 class="text-3xl font-bold text-white">Your Personalized Itinerary</h2>
+                <div class="container mx-auto px-6">
+                    <div class="text-center">
+                        <div class="inline-block bg-gray-900/70 backdrop-blur-sm py-3 px-6 rounded-lg border border-gray-700 mb-12">
+                            <h2 class="text-3xl font-bold text-white">Your Personalized Itinerary</h2>
+                        </div>
                     </div>
                     <div id="loading" class="text-center">
                         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400"></div>
-                        <p class="mt-4 text-lg gemini-gradient-text">Generating your trip plan...</p>
+                        <p class="mt-4 text-lg text-gray-400">Generating your trip plan...</p>
                     </div>
                     <div id="itinerary-content" class="max-w-4xl mx-auto"></div>
+                    <div id="hotel-suggestions-container" class="max-w-4xl mx-auto mt-12"></div>
                     <div id="error-message" class="text-center text-red-500 mt-4 hidden"></div>
                 </div>
             </section>
@@ -143,6 +200,44 @@
                 </div>
             </section>
         </div>
+        
+        <!-- Pricing Page -->
+        <div id="page-pricing" class="page hidden">
+            <section id="pricing" class="py-20">
+                <div class="container mx-auto px-6 text-center">
+                    <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg border border-gray-700">
+                        <h2 class="text-3xl font-bold mb-4 text-white">Subscription Plans</h2>
+                        <p class="text-gray-400 mb-12 max-w-2xl mx-auto">Choose a plan that works for you and unlock the full potential of AI-powered travel planning.</p>
+                        <div class="flex flex-col md:flex-row justify-center gap-8">
+                            <!-- Monthly Plan -->
+                            <div class="bg-gray-800 p-8 rounded-lg border border-gray-700 flex-1 max-w-md">
+                                <h3 class="text-2xl font-bold mb-4 text-white">Monthly Plan</h3>
+                                <p class="text-4xl font-bold mb-4 gemini-gradient-text">$10<span class="text-lg text-gray-400">/month</span></p>
+                                <ul class="text-gray-400 space-y-2 mb-8">
+                                    <li>✓ Unlimited Itineraries</li>
+                                    <li>✓ AI Chatbot Assistant</li>
+                                    <li>✓ Save & Share Trips</li>
+                                    <li>✓ Email Support</li>
+                                </ul>
+                                <button class="w-full gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-6 rounded-lg transition-opacity">Choose Plan</button>
+                            </div>
+                            <!-- Yearly Plan -->
+                            <div class="bg-gray-800 p-8 rounded-lg border-2 border-purple-500 flex-1 max-w-md relative">
+                                <span class="absolute top-0 -translate-y-1/2 bg-purple-500 text-white text-sm font-bold px-3 py-1 rounded-full">SAVE 20%</span>
+                                <h3 class="text-2xl font-bold mb-4 text-white">Yearly Plan</h3>
+                                <p class="text-4xl font-bold mb-4 gemini-gradient-text">$100<span class="text-lg text-gray-400">/year</span></p>
+                                <ul class="text-gray-400 space-y-2 mb-8">
+                                    <li>✓ All Monthly Features</li>
+                                    <li>✓ Priority Support</li>
+                                    <li>✓ Early Access to New Features</li>
+                                </ul>
+                                <button class="w-full gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-6 rounded-lg transition-opacity">Choose Plan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
 
         <!-- Contact Page -->
         <div id="page-contact" class="page hidden">
@@ -153,7 +248,7 @@
                         <p class="text-gray-400 mb-8 max-w-2xl mx-auto">Have questions or feedback? We'd love to hear from you. Reach out to us through any of the channels below.</p>
                         <div class="flex flex-col md:flex-row justify-center items-center gap-8">
                             <div class="flex items-center gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                 <a href="mailto:rfknbi.piash@gmail.com" class="text-lg text-purple-400 hover:underline">rfknbi.piash@gmail.com</a>
                             </div>
                             <div class="flex items-center gap-3">
@@ -183,7 +278,162 @@
                 </div>
             </section>
         </div>
+        
+        <!-- Verification Page -->
+        <div id="page-verification" class="page hidden">
+            <section class="py-20">
+                <div class="container mx-auto px-6 text-center">
+                    <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg border border-gray-700 max-w-md mx-auto">
+                        <h2 class="text-3xl font-bold mb-4 text-white">Please Verify Your Email</h2>
+                        <p id="verification-message" class="text-green-400 mb-4"></p>
+                        <p class="text-gray-400 mb-8">Please click the link in the email to continue.</p>
+                        <button id="resend-verification-btn" class="w-full gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-6 rounded-lg transition-opacity">Resend Verification Email</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Profile Page -->
+        <div id="page-profile" class="page hidden">
+            <section class="py-20">
+                <div class="container mx-auto px-6 text-center">
+                    <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg border border-gray-700 max-w-md mx-auto">
+                        <h2 class="text-3xl font-bold mb-8 text-white">Your Profile</h2>
+                        <div class="text-left space-y-4">
+                            <div>
+                                <label class="text-gray-400 font-medium">Name</label>
+                                <p id="profile-name" class="text-lg text-white bg-gray-800 p-3 rounded-lg"></p>
+                            </div>
+                            <div>
+                                <label class="text-gray-400 font-medium">Email</label>
+                                <p id="profile-email" class="text-lg text-white bg-gray-800 p-3 rounded-lg"></p>
+                            </div>
+                             <div>
+                                <label class="text-gray-400 font-medium">Membership Status</label>
+                                <p id="profile-membership" class="text-lg text-white bg-gray-800 p-3 rounded-lg"></p>
+                            </div>
+                            <div>
+                                <label class="text-gray-400 font-medium">Joined Date</label>
+                                <p id="profile-joined" class="text-lg text-white bg-gray-800 p-3 rounded-lg"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Booking Page -->
+        <div id="page-booking" class="page hidden">
+            <section id="booking" class="py-20">
+                <div class="container mx-auto px-6">
+                    <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg shadow-lg max-w-4xl mx-auto border border-gray-700">
+                        <h2 class="text-3xl font-bold text-center mb-8 text-white">Book Your Hotel</h2>
+                        <form id="booking-form">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label for="booking-destination" class="block text-gray-400 font-medium mb-2">Destination</label>
+                                    <input type="text" id="booking-destination" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                                </div>
+                                <div>
+                                    <label for="booking-guests" class="block text-gray-400 font-medium mb-2">Number of Guests</label>
+                                    <input type="number" id="booking-guests" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label for="checkin-date" class="block text-gray-400 font-medium mb-2">Check-in Date</label>
+                                    <input type="date" id="checkin-date" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                                </div>
+                                <div>
+                                    <label for="checkout-date" class="block text-gray-400 font-medium mb-2">Check-out Date</label>
+                                    <input type="date" id="checkout-date" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                                </div>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 px-8 rounded-full text-lg transition-opacity">Search Hotels</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            <section id="hotel-results-section" class="py-20 hidden">
+                <div class="container mx-auto px-6">
+                     <div class="bg-gray-900/70 backdrop-blur-sm p-8 rounded-lg shadow-lg max-w-4xl mx-auto border border-gray-700">
+                        <h2 class="text-3xl font-bold text-center mb-8 text-white">Hotel Results</h2>
+                        <div id="hotel-results" class="space-y-4">
+                            <!-- Hotel results will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
     </main>
+
+    <!-- Chat Widget -->
+    <div id="chat-widget" class="fixed bottom-5 right-5 z-20">
+        <button id="chat-toggle" class="gemini-gradient-bg text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+        </button>
+        <div id="chat-window" class="hidden absolute bottom-20 right-0 w-80 h-96 bg-gray-800 rounded-lg shadow-xl flex flex-col">
+            <div class="p-4 bg-gray-900 rounded-t-lg">
+                <h3 class="font-bold text-white">AI Travel Assistant</h3>
+            </div>
+            <div id="chat-messages" class="flex-1 p-4 overflow-y-auto">
+                <!-- Messages will appear here -->
+            </div>
+            <div class="p-4 border-t border-gray-700">
+                <form id="chat-form" class="flex gap-2">
+                    <input type="text" id="chat-input" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" placeholder="Ask me anything...">
+                    <button type="submit" class="gemini-gradient-bg text-white p-2 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center hidden z-30">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md relative border border-gray-700">
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-gray-400 hover:text-white">&times;</button>
+            <!-- Login Form -->
+            <div id="login-form-container">
+                <h2 class="text-2xl font-bold text-center mb-6 text-white">Login</h2>
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="login-email" class="block text-gray-400 mb-2">Email</label>
+                        <input type="email" id="login-email" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="login-password" class="block text-gray-400 mb-2">Password</label>
+                        <input type="password" id="login-password" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                    </div>
+                    <button type="submit" class="w-full gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 rounded-lg">Login</button>
+                </form>
+                <p class="text-center text-gray-400 mt-4">Don't have an account? <a href="#" id="show-signup" class="text-purple-400 hover:underline">Sign Up</a></p>
+            </div>
+            <!-- Sign Up Form -->
+            <div id="signup-form-container" class="hidden">
+                <h2 class="text-2xl font-bold text-center mb-6 text-white">Sign Up</h2>
+                <form id="signup-form">
+                     <div class="mb-4">
+                        <label for="signup-name" class="block text-gray-400 mb-2">Name</label>
+                        <input type="text" id="signup-name" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="signup-email" class="block text-gray-400 mb-2">Email</label>
+                        <input type="email" id="signup-email" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="signup-password" class="block text-gray-400 mb-2">Password</label>
+                        <input type="password" id="signup-password" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-white" required>
+                    </div>
+                    <button type="submit" class="w-full gemini-gradient-bg hover:opacity-90 text-white font-bold py-3 rounded-lg">Sign Up</button>
+                </form>
+                <p class="text-center text-gray-400 mt-4">Already have an account? <a href="#" id="show-login" class="text-purple-400 hover:underline">Login</a></p>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="bg-gray-800 text-white py-8">
@@ -193,30 +443,328 @@
     </footer>
 
     <script>
+        // Your web app's Firebase configuration
+         const firebaseConfig = {
+  apiKey: "AIzaSyBY20fVqxWvI-pEsN1r1x1Ur__Knv2uFTg",
+  authDomain: "ai-trip-planner-700da.firebaseapp.com",
+  projectId: "ai-trip-planner-700da",
+  storageBucket: "ai-trip-planner-700da.firebasestorage.app",
+  messagingSenderId: "1069880914313",
+  appId: "1:1069880914313:web:6c15bfa8e9c795c239f158",
+  measurementId: "G-W3RW6CFL6T"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
         const tripForm = document.getElementById('trip-form');
         const itinerarySection = document.getElementById('itinerary-section');
         const loadingDiv = document.getElementById('loading');
         const itineraryContent = document.getElementById('itinerary-content');
+        const hotelSuggestionsContainer = document.getElementById('hotel-suggestions-container');
         const errorMessage = document.getElementById('error-message');
         const micButtons = document.querySelectorAll('.mic-button');
         const navLinks = document.querySelectorAll('.nav-link');
         const pages = document.querySelectorAll('.page');
+        const chatToggle = document.getElementById('chat-toggle');
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const getStartedBtn = document.getElementById('get-started-btn');
+        const bookingForm = document.getElementById('booking-form');
+        const hotelResultsSection = document.getElementById('hotel-results-section');
+        const hotelResults = document.getElementById('hotel-results');
+        
+        // Auth elements
+        const authModal = document.getElementById('auth-modal');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const showSignup = document.getElementById('show-signup');
+        const showLogin = document.getElementById('show-login');
+        const loginFormContainer = document.getElementById('login-form-container');
+        const signupFormContainer = document.getElementById('signup-form-container');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const authButtons = document.getElementById('auth-buttons');
+        const userActions = document.getElementById('user-actions');
+        const logoutBtn = document.getElementById('logout-btn');
+        const resendVerificationBtn = document.getElementById('resend-verification-btn');
+        const verificationMessage = document.getElementById('verification-message');
+
+        // Auth Modal Logic
+        loginBtn.addEventListener('click', () => {
+            authModal.classList.remove('hidden');
+            loginFormContainer.classList.remove('hidden');
+            signupFormContainer.classList.add('hidden');
+        });
+        signupBtn.addEventListener('click', () => {
+            authModal.classList.remove('hidden');
+            signupFormContainer.classList.remove('hidden');
+            loginFormContainer.classList.add('hidden');
+        });
+        closeModalBtn.addEventListener('click', () => authModal.classList.add('hidden'));
+        showSignup.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginFormContainer.classList.add('hidden');
+            signupFormContainer.classList.remove('hidden');
+        });
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            signupFormContainer.classList.add('hidden');
+            loginFormContainer.classList.remove('hidden');
+        });
+        
+        // Firebase Auth
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    if (user.emailVerified) {
+                        authModal.classList.add('hidden');
+                    } else {
+                        alert('Please verify your email before logging in.');
+                        auth.signOut();
+                    }
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        });
+
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('signup-name').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    
+                    authModal.classList.add('hidden');
+                    showPage('verification');
+                    verificationMessage.textContent = 'A verification email has been sent to your inbox.';
+                    
+                    user.sendEmailVerification();
+                    
+                    db.collection('users').doc(user.uid).set({
+                        name: name,
+                        email: email
+                    });
+
+                    auth.signOut();
+                })
+                .catch((error) => {
+                    alert(error.message);
+                });
+        });
+        
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                showPage('home');
+            }).catch((error) => alert(error.message));
+        });
+
+        resendVerificationBtn.addEventListener('click', () => {
+            const user = auth.currentUser;
+            if (user) {
+                user.sendEmailVerification().then(() => {
+                    alert('A new verification email has been sent.');
+                }).catch((error) => {
+                    alert(error.message);
+                });
+            }
+        });
+
+        auth.onAuthStateChanged((user) => {
+            if (user && user.emailVerified) {
+                authButtons.classList.add('hidden');
+                userActions.classList.remove('hidden');
+                userActions.classList.add('flex');
+                showPage('home');
+
+                // Fetch user profile info
+                const userDocRef = db.collection('users').doc(user.uid);
+                userDocRef.get().then((doc) => {
+                    if (doc.exists) {
+                        document.getElementById('profile-name').textContent = doc.data().name;
+                        document.getElementById('profile-email').textContent = doc.data().email;
+                        document.getElementById('profile-membership').textContent = 'Premium'; // Assuming premium for logged-in users
+                        document.getElementById('profile-joined').textContent = new Date(user.metadata.creationTime).toLocaleDateString();
+                    } else {
+                        console.log("No such document!");
+                    }
+                }).catch((error) => {
+                    console.log("Error getting document:", error);
+                });
+
+            } else {
+                authButtons.classList.remove('hidden');
+                userActions.classList.add('hidden');
+                userActions.classList.remove('flex');
+                showPage('home');
+            }
+        });
+
 
         // Page Navigation
+        function showPage(pageId) {
+            pages.forEach(page => {
+                if (page.id === `page-${pageId}`) {
+                    page.classList.remove('hidden');
+                } else {
+                    page.classList.add('hidden');
+                }
+            });
+        }
+
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const pageId = `page-${link.dataset.page}`;
-                
-                pages.forEach(page => {
-                    if (page.id === pageId) {
-                        page.classList.remove('hidden');
-                    } else {
-                        page.classList.add('hidden');
-                    }
-                });
+                showPage(link.dataset.page);
             });
         });
+        
+        getStartedBtn.addEventListener('click', () => {
+            const user = auth.currentUser;
+            if (user && user.emailVerified) {
+                showPage('planner');
+            } else {
+                authModal.classList.remove('hidden');
+                loginFormContainer.classList.remove('hidden');
+                signupFormContainer.classList.add('hidden');
+            }
+        });
+
+        // Hotel Booking
+        bookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hotelResultsSection.classList.remove('hidden');
+            hotelResults.innerHTML = '<div class="text-center"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div></div>';
+
+            const destination = document.getElementById('booking-destination').value;
+            const prompt = `Suggest 3 top-rated hotels in ${destination}. For each hotel, provide the name, a brief description, an estimated price per night, and a Google Maps link. Format the response as a JSON object with a single key "hotels", which is an array of objects, where each object has "name", "description", "price", and "google_maps_link" keys.`;
+            
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { 
+                contents: chatHistory,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+            const apiKey = "AIzaSyB9_RiX4ltTGsBDTLBoBy-MKYS4ngVfclY"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates[0].content.parts[0].text) {
+                    const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+                    displayHotelResults(parsedJson.hotels);
+                } else {
+                    throw new Error("Invalid response from AI.");
+                }
+            } catch (error) {
+                console.error("Error fetching hotel suggestions:", error);
+                hotelResults.innerHTML = `<p class="text-red-500">Sorry, we couldn't fetch hotel suggestions at this time.</p>`;
+            }
+        });
+
+        function displayHotelResults(hotels) {
+            hotelResults.innerHTML = '';
+            if (!hotels || hotels.length === 0) {
+                hotelResults.innerHTML = '<p>No hotels found for this destination.</p>';
+                return;
+            }
+            hotels.forEach(hotel => {
+                const hotelEl = document.createElement('div');
+                hotelEl.className = 'bg-gray-800 p-4 rounded-lg border border-gray-700';
+                hotelEl.innerHTML = `
+                    <h3 class="text-xl font-bold text-white">${hotel.name}</h3>
+                    <p class="text-gray-400">${hotel.description}</p>
+                    <p class="text-lg font-semibold text-purple-400 mt-2">${hotel.price}</p>
+                    <a href="${hotel.google_maps_link}" target="_blank" class="text-blue-400 hover:underline mt-2 inline-block">View on Google Maps</a>
+                `;
+                hotelResults.appendChild(hotelEl);
+            });
+        }
+
+        // Chat Widget
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            addMessage(message, 'user');
+            chatInput.value = '';
+
+            addMessage("Thinking...", 'bot');
+
+            const prompt = message;
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = "AIzaSyB9_RiX4ltTGsBDTLBoBy-MKYS4ngVfclY"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const botMessage = result.candidates[0].content.parts[0].text;
+                
+                const thinkingMessage = chatMessages.querySelector('.thinking');
+                if (thinkingMessage) {
+                    thinkingMessage.remove();
+                }
+
+                addMessage(botMessage, 'bot');
+            } catch (error) {
+                console.error("Chatbot error:", error);
+                const thinkingMessage = chatMessages.querySelector('.thinking');
+                if (thinkingMessage) {
+                    thinkingMessage.remove();
+                }
+                addMessage("Sorry, I'm having trouble connecting. Please try again later.", 'bot');
+            }
+        });
+
+        function addMessage(text, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('mb-3', 'p-3', 'rounded-lg', 'max-w-xs');
+            if (sender === 'user') {
+                messageElement.classList.add('bg-purple-600', 'text-white', 'ml-auto');
+            } else {
+                messageElement.classList.add('bg-gray-700', 'text-white', 'mr-auto');
+                if (text === "Thinking...") {
+                    messageElement.classList.add('thinking');
+                }
+            }
+            messageElement.textContent = text;
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
 
         // Speech Recognition Setup
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -270,12 +818,12 @@
             itinerarySection.classList.remove('hidden');
             loadingDiv.classList.remove('hidden');
             itineraryContent.innerHTML = '';
+            hotelSuggestionsContainer.innerHTML = '';
             errorMessage.classList.add('hidden');
             
-            // Scroll to the itinerary section
             itinerarySection.scrollIntoView({ behavior: 'smooth' });
 
-            const prompt = `Create a detailed travel itinerary for a ${duration}-day trip to ${destination}. The traveler is interested in ${interests}. For each day, provide a morning, afternoon, and evening plan with specific suggestions for activities, sights, and restaurants. Include brief descriptions for each suggestion. Format the response as a JSON object with a single key "itinerary", which is an array of objects, where each object represents a day and has "day", "morning", "afternoon", and "evening" keys. Each of these time-based keys should contain an array of objects with "activity" and "description" keys.`;
+            const prompt = `Create a detailed travel itinerary for a ${duration}-day trip to ${destination}. The traveler is interested in ${interests}. For each day, provide a morning, afternoon, and evening plan with specific suggestions for activities, sights, and restaurants. Include brief descriptions for each suggestion. After the itinerary, also suggest 3 highly-rated hotels relevant to the trip's location. For each hotel, provide the name, a brief description, and an estimated price per night. Format the response as a JSON object with two keys: "itinerary" and "hotel_suggestions". "itinerary" should be an array of objects, where each object represents a day and has "day", "morning", "afternoon", and "evening" keys. Each of these time-based keys should contain an array of objects with "activity" and "description" keys. "hotel_suggestions" should be an array of objects with "name", "description", and "price" keys.`;
             
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
@@ -301,12 +849,9 @@
 
                 const result = await response.json();
 
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    const parsedJson = JSON.parse(text);
-                    displayItinerary(parsedJson.itinerary);
+                if (result.candidates && result.candidates[0].content.parts[0].text) {
+                    const parsedJson = JSON.parse(result.candidates[0].content.parts[0].text);
+                    displayItinerary(parsedJson);
                 } else {
                     throw new Error("Invalid response structure from AI.");
                 }
@@ -319,9 +864,12 @@
             }
         });
 
-        function displayItinerary(itinerary) {
+        function displayItinerary(data) {
             itineraryContent.innerHTML = '';
-            itinerary.forEach(dayPlan => {
+            hotelSuggestionsContainer.innerHTML = '';
+
+            // Display Itinerary
+            data.itinerary.forEach(dayPlan => {
                 const dayElement = document.createElement('div');
                 dayElement.classList.add('bg-gray-900/70', 'backdrop-blur-sm', 'p-6', 'rounded-lg', 'shadow-md', 'mb-8', 'border', 'border-gray-700');
 
@@ -334,6 +882,32 @@
                 dayElement.innerHTML = dayHtml;
                 itineraryContent.appendChild(dayElement);
             });
+
+            // Display Hotel Suggestions
+            if (data.hotel_suggestions && data.hotel_suggestions.length > 0) {
+                let hotelHtml = '<h3 class="text-2xl font-bold text-center mb-8 text-white">Hotel Suggestions</h3>';
+                data.hotel_suggestions.forEach(hotel => {
+                    hotelHtml += `
+                        <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 mb-4">
+                            <h4 class="text-xl font-bold text-white">${hotel.name}</h4>
+                            <p class="text-gray-400">${hotel.description}</p>
+                            <p class="text-lg font-semibold text-purple-400 mt-2">${hotel.price}</p>
+                        </div>
+                    `;
+                });
+                hotelSuggestionsContainer.innerHTML = hotelHtml;
+            }
+            
+            const user = auth.currentUser;
+            if (user) {
+                db.collection('users').doc(user.uid).collection('itineraries').add({
+                    itinerary: data.itinerary,
+                    hotel_suggestions: data.hotel_suggestions,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                })
+                .then(() => console.log("Itinerary saved!"))
+                .catch((error) => console.error("Error saving itinerary: ", error));
+            }
         }
 
         function createDaySection(title, activities) {
